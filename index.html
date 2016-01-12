@@ -1,0 +1,264 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<title>Ver LOG Files</title> 
+		<meta http-equiv="content-type" content="text/html;charset=utf-8" />
+
+		<link type="text/css" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/themes/flick/jquery-ui.css" rel="stylesheet"></link>
+		<link type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet"></link>
+
+
+		<style type="text/css">
+			#grepKeyword, #settings { 
+				font-size: 80%; 
+			}
+			.float {
+				background: white; 
+				border-bottom: 1px solid black; 
+				padding: 10px 0 10px 0; 
+				margin: 0px;  
+				height: 30px;
+				width: 100%; 
+				text-align: left;
+			}
+			.fondo {
+				background: gray; 
+				color: white; 
+				text-align: center;
+				border-width: medium;
+				border-color: black;
+				border-style: solid;
+			}
+			div.scroll {
+				background-color: #FAFAFA;
+				/*width: 300px;*/
+				/*height: 300px;*/
+				min-height: 500px;
+				max-height: 800px;
+				overflow: scroll;
+			}
+
+		</style>
+
+		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/jquery-ui.min.js"></script>
+		<script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+		<script type="text/javascript">
+
+			var intervalo;
+			//Last know size of the file
+			var lastSize = 46097152;
+			//Grep keyword
+			grep = "";
+			//Should the Grep be inverted?
+			invert = 0;
+			//Last known document height
+			documentHeight = 0;
+			//Last known scroll position
+			scrollPosition = 0;
+			//Should we scroll to the bottom?
+			scroll = true;
+			$(document).ready(function () {
+
+				//Some window scroll event to keep the menu at the top
+				$(window).scroll(function (e) {
+					if ($(window).scrollTop() > 0) {
+						$('.float').css({
+							position: 'fixed',
+							top: '0',
+							left: 'auto'
+						});
+					} else {
+						$('.float').css({
+							position: 'static'
+						});
+					}
+				});
+				//If window is resized should we scroll to the bottom?
+				$(window).resize(function () {
+					if (scroll) {
+						scrollToBottom();
+					}
+				});
+				//Handle if the window should be scrolled down or not
+				$(window).scroll(function () {
+					documentHeight = $(document).height();
+					scrollPosition = $(window).height() + $(window).scrollTop();
+					if (documentHeight <= scrollPosition) {
+						scroll = true;
+					}
+					else {
+						scroll = false;
+					}
+				});
+			});
+			
+			//This function queries the server for updates.
+			function updateLog(posicion) {
+				var datos = {};
+				datos.ajax = 1;
+				datos.grep = $("#grep_" + posicion).val();
+				datos.lastsize = $("#lastsize_" + posicion).val();
+				datos.file = $("#file_" + posicion).val();
+				datos.invert = "";
+
+				$.ajax({
+					dataType: "json",
+					url: "Log.php",
+					data: datos,
+					success: function (data) {
+						lastSize = data.size;
+						$("#lastsize_" + posicion).val(lastSize);
+						$.each(data.data, function (key, value) {
+							$("#results_" + posicion).append('' + value + '<br/>');
+						});
+					}
+				});
+			}
+
+			function action(posicion) {
+				if ($("#action_" + posicion).html() === "Start") {
+					start(posicion);
+					$("#action_" + posicion).html("Stop");
+				} else {
+					stop(posicion);
+					$("#action_" + posicion).html("Start");
+				}
+
+			}
+
+			function getInicio(posicion) {
+				// Obtiene el tamaño inicial del archivo
+				var datos = {};
+				datos.fileSize = 1;
+				datos.file = $("#file_" + posicion).val();
+
+				$.ajax({
+					dataType: "json",
+					url: "Log.php",
+					data: datos,
+					success: function (data) {
+						$("#lastsize_" + posicion).val(data.size);
+					}
+				});
+			}
+
+			function start(posicion) {
+				if (posicion === "left") {
+					intervalo_left = setInterval("updateLog('left')", 2000);
+				} else {
+					intervalo_right = setInterval("updateLog('right')", 2000);
+				}
+			}
+
+			function stop(posicion) {
+				if (posicion === "left") {
+					clearInterval(intervalo_left);
+				} else {
+					clearInterval(intervalo_right);
+				}
+			}
+			
+			function limpiar(posicion) {
+				$("#results_" + posicion).html("");
+			}
+
+			var serializeJSON = function (selector)
+			{
+				var o = {};
+				var a = $(selector).serializeArray();
+				$.each(a, function () {
+					if (o[this.name]) {
+						if (!o[this.name].push) {
+							o[this.name] = [o[this.name]];
+						}
+						o[this.name].push(this.value || '');
+					} else {
+						o[this.name] = this.value || '';
+					}
+				});
+				return o;
+			};
+		</script>
+	</head> 
+	<body>
+		<div class="row">
+			<div class="col-md-6">
+				<div class="col-md-12 form-group">
+					<div class="col-md-2">
+						<label>Archivo</label>
+					</div>
+					<div class="col-md-10">
+						<input id="file_left" class="form-control" name="file" type="text" value="/var/log/apache2/error.log"/>
+					</div>
+				</div>
+				<div class="col-md-12 form-group">
+					<div class="col-md-2">
+						<label>Grep</label>
+					</div>
+					<div class="col-md-10">
+						<input id="grep_left" class="form-control" name="grep_left" type="text" value=""/>
+						<input id="lastsize_left" name="lastsize_left" type="hidden"/>
+					</div>
+				</div>
+				<div class="col-md-12 form-group">
+					<div class="col-md-8">&nbsp;</div>
+					<div class="col-md-2">
+						<button type="button" id="reset_left" class="btn btn-md btn-default" onclick="limpiar('left');">Limpiar</button>
+					</div>
+					<div class="col-md-2">
+						<button type="button" id="action_left" class="btn btn-md btn-primary" onclick="action('left');">Start</button>
+					</div>
+				</div>
+			</div>
+			<div class="col-md-6">
+				<div class="col-md-12 form-group">
+					<div class="col-md-2">
+						<label>Archivo</label>
+					</div>
+					<div class="col-md-10">
+						<input id="file_right" class="form-control" name="file_right" type="text" value="/var/log/postgresql/postgresql-8.4-main.log"/>
+					</div>
+				</div>
+				<div class="col-md-12 form-group">
+					<div class="col-md-2">
+						<label>Grep</label>
+					</div>
+					<div class="col-md-10">
+						<input id="grep_right" class="form-control" name="grep_right" type="text" value=""/>
+						<input id="lastsize_right" name="lastsize_right" type="hidden"/>
+					</div>
+				</div>
+				<div class="col-md-12 form-group">
+					<div class="col-md-8">&nbsp;</div>
+					<div class="col-md-2">
+						<button type="button" id="clear_right" class="btn btn-md btn-default" onclick="limpiar('right');">Limpiar</button>
+					</div>
+					<div class="col-md-2">
+						<button type="button" id="action_right" class="btn btn-md btn-primary" onclick="action('right');">Start</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="col-md-6 fondo">APACHE</div>
+			<div class="col-md-6 fondo">POSTGRESQL</div>
+		</div>
+
+		<div class="row">
+			<div class="col-md-6" >
+				<div id="results_left" class="scroll"></div>
+			</div>
+
+			<div class="col-md-6">
+				<div id="results_right" class="scroll"></div>
+			</div>
+		</div>
+
+		<div class="container"></div>
+
+	</body> 
+</html> 
